@@ -4,108 +4,193 @@ import { useState } from "react";
 
 export default function Home() {
   const [input, setInput] = useState("");
-  const [output, setOutput] = useState(null);
+  const [tone, setTone] = useState("Professional");
+  const [activeTab, setActiveTab] = useState("instagram");
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+
+  const [outputs, setOutputs] = useState({
+    instagram: "",
+    linkedin: "",
+    twitter: "",
+    youtube: "",
+  });
+
+  const tabs = ["instagram", "linkedin", "twitter", "youtube"];
 
   const generateContent = async () => {
-    if (!input) return;
+    if (!input.trim()) return;
 
     setLoading(true);
+    setError("");
 
     try {
       const res = await fetch("/api/generate", {
         method: "POST",
-
         headers: {
           "Content-Type": "application/json",
         },
-
         body: JSON.stringify({
           content: input,
+          tone,
+          platform: activeTab,
         }),
       });
 
       const data = await res.json();
 
-      setOutput(data);
+      if (!res.ok) {
+        throw new Error(data.error || "Generation failed");
+      }
 
-    } catch (error) {
-      console.error("Error:", error);
+      setOutputs((prev) => ({
+        ...prev,
+        [activeTab]: data.content,
+      }));
+
+    } catch (err) {
+      setError(err.message);
     }
 
     setLoading(false);
   };
 
+  const copyText = () => {
+    navigator.clipboard.writeText(outputs[activeTab]);
+    alert("Copied");
+  };
+
   return (
-    <main className="max-w-5xl mx-auto p-6">
+    <main className="min-h-screen bg-black text-white p-6">
+      <div className="max-w-7xl mx-auto">
 
-      <h1 className="text-4xl font-bold mb-6">
-        AI Content Repurposer 🚀
-      </h1>
+        <div className="mb-8">
+          <h1 className="text-4xl font-bold">
+            AI Repurpose Studio 🚀
+          </h1>
 
-      <textarea
-        rows={10}
-        className="w-full border p-4 rounded-lg"
-        placeholder="Paste your blog content..."
-        value={input}
-        onChange={(e) => setInput(e.target.value)}
-      />
+          <p className="text-gray-400 mt-2">
+            Repurpose blogs into platform-ready social content
+          </p>
+        </div>
 
-      <button
-        onClick={generateContent}
-        className="bg-black text-white px-6 py-3 rounded-lg mt-4"
-      >
-        {loading ? "Generating..." : "Generate"}
-      </button>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
 
-      {output && (
+          {/* LEFT */}
+          <div className="bg-zinc-900 rounded-2xl p-6 border border-zinc-800">
 
-        <div className="mt-10 space-y-8">
-
-          <section>
-            <h2 className="text-2xl font-bold mb-2">
-              Instagram
+            <h2 className="text-2xl font-semibold mb-6">
+              Content Input
             </h2>
 
-            <pre className="whitespace-pre-wrap bg-gray-100 text-black p-4 rounded-lg">
-              {output.instagram}
-            </pre>
-          </section>
+            <select
+              value={tone}
+              onChange={(e) => setTone(e.target.value)}
+              className="w-full bg-zinc-800 border border-zinc-700 p-3 rounded-xl mb-4"
+            >
+              <option>Professional</option>
+              <option>Viral</option>
+              <option>Storytelling</option>
+              <option>Educational</option>
+            </select>
 
-          <section>
-            <h2 className="text-2xl font-bold mb-2">
-              LinkedIn
-            </h2>
+            <textarea
+              rows={18}
+              placeholder="Paste blog/article content here..."
+              value={input}
+              onChange={(e) => {
+                setInput(e.target.value);
+                setOutputs({
+                  instagram: "",
+                  linkedin: "",
+                  twitter: "",
+                  youtube: "",
+                });
+              }}
+              className="w-full bg-zinc-800 border border-zinc-700 p-4 rounded-2xl resize-none"
+            />
 
-            <pre className="whitespace-pre-wrap bg-gray-100 text-black p-4 rounded-lg">
-              {output.linkedin}
-            </pre>
-          </section>
+            <button
+              onClick={generateContent}
+              disabled={loading}
+              className="w-full mt-4 bg-white text-black py-4 rounded-2xl font-semibold hover:opacity-90"
+            >
+              {loading
+                ? `Generating ${activeTab}...`
+                : `Generate ${activeTab}`}
+            </button>
 
-          <section>
-            <h2 className="text-2xl font-bold mb-2">
-              Twitter
-            </h2>
+          </div>
 
-            <pre className="whitespace-pre-wrap bg-gray-100 text-black p-4 rounded-lg">
-              {output.twitter}
-            </pre>
-          </section>
+          {/* RIGHT */}
+          <div className="bg-zinc-900 rounded-2xl p-6 border border-zinc-800">
 
-          <section>
-            <h2 className="text-2xl font-bold mb-2">
-              YouTube
-            </h2>
+            <div className="flex justify-between items-center mb-6">
 
-            <pre className="whitespace-pre-wrap bg-gray-100 text-black p-4 rounded-lg">
-              {output.youtube}
-            </pre>
-          </section>
+              <h2 className="text-2xl font-semibold">
+                Output Workspace
+              </h2>
+
+              {outputs[activeTab] && (
+                <button
+                  onClick={copyText}
+                  className="bg-zinc-700 px-4 py-2 rounded-xl hover:bg-zinc-600"
+                >
+                  Copy
+                </button>
+              )}
+
+            </div>
+
+            <div className="flex gap-3 flex-wrap mb-6">
+              {tabs.map((tab) => (
+                <button
+                  key={tab}
+                  onClick={() => setActiveTab(tab)}
+                  className={`px-5 py-2 rounded-xl capitalize ${
+                    activeTab === tab
+                      ? "bg-white text-black"
+                      : "bg-zinc-800"
+                  }`}
+                >
+                  {tab}
+                </button>
+              ))}
+            </div>
+
+            <div className="bg-zinc-800 rounded-2xl p-5 min-h-[550px] overflow-y-auto">
+
+              {loading && (
+                <div className="text-gray-400">
+                  Generating {activeTab} content...
+                </div>
+              )}
+
+              {!loading && !outputs[activeTab] && (
+                <div className="text-gray-500">
+                  Select a platform and click Generate
+                </div>
+              )}
+
+              {error && (
+                <div className="text-red-400">
+                  {error}
+                </div>
+              )}
+
+              {outputs[activeTab] && (
+                <pre className="whitespace-pre-wrap text-sm leading-7">
+                  {outputs[activeTab]}
+                </pre>
+              )}
+
+            </div>
+
+          </div>
 
         </div>
 
-      )}
-
+      </div>
     </main>
   );
 }
