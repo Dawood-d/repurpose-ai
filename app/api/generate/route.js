@@ -87,7 +87,7 @@ export async function POST(req) {
     const prompt = prompts[platform](content, tone);
 
     const response = await groq.chat.completions.create({
-      model: "llama-3.1-8b-instant",
+      model: "openai/gpt-oss-20b",
       messages: [
         {
           role: "user",
