@@ -1,8 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-// Notice how we are now importing 'Show' instead of SignedIn/SignedOut
-import { SignInButton, UserButton, Show } from "@clerk/nextjs";
+import { SignInButton, UserButton, Show, useUser } from "@clerk/nextjs";
 
 export default function Home() {
   const [input, setInput] = useState("");
@@ -11,9 +10,16 @@ export default function Home() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
+  // --- CLERK USER HOOK ---
+  const { user } = useUser();
+  const isLifetimeMember = user?.publicMetadata?.plan === "lifetime";
+
   // --- FREEMIUM HOOK STATE ---
   const [generationsUsed, setGenerationsUsed] = useState(0);
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
+  
+  // Set your new limit here
+  const MAX_FREE_TRIPS = 5;
 
   const [outputs, setOutputs] = useState({
     instagram: "",
@@ -34,7 +40,8 @@ export default function Home() {
     if (!input.trim()) return;
 
     // --- FREEMIUM HOOK CHECK ---
-    if (generationsUsed >= 1) {
+    // If they are NOT a lifetime member AND they hit the limit, show the paywall
+    if (!isLifetimeMember && generationsUsed >= MAX_FREE_TRIPS) {
       setShowUpgradeModal(true);
       return;
     }
@@ -58,6 +65,12 @@ export default function Home() {
       const data = await res.json();
 
       if (!res.ok) {
+        // If the backend blocks them (402 error), show the upgrade modal
+        if (res.status === 402) {
+           setShowUpgradeModal(true);
+           setLoading(false);
+           return;
+        }
         throw new Error(data.error || "Generation failed");
       }
 
@@ -66,10 +79,12 @@ export default function Home() {
         [activeTab]: data.content,
       }));
 
-      // Increment usage after successful generation
-      const newUsage = generationsUsed + 1;
-      setGenerationsUsed(newUsage);
-      localStorage.setItem("repurpose_usage", newUsage);
+      // Increment usage after successful generation (only if not a lifetime member)
+      if (!isLifetimeMember) {
+        const newUsage = generationsUsed + 1;
+        setGenerationsUsed(newUsage);
+        localStorage.setItem("repurpose_usage", newUsage);
+      }
 
     } catch (err) {
       setError(err.message);
@@ -97,7 +112,6 @@ export default function Home() {
           </div>
           
           <div className="bg-zinc-900 border border-zinc-800 px-4 py-2 rounded-xl flex items-center justify-center">
-            {/* NEW CLERK V6 LOGIC */}
             <Show when="signed-out">
               <SignInButton mode="modal">
                 <button className="text-white font-semibold hover:text-gray-300">Log In</button>
@@ -200,7 +214,7 @@ export default function Home() {
           <div className="bg-zinc-900 border border-zinc-800 p-8 rounded-2xl text-center max-w-md w-full mx-4 shadow-2xl">
             <h2 className="text-2xl font-bold mb-3 text-white">Out of Free Credits! 🚀</h2>
             <p className="text-gray-400 mb-8">
-              You've used your free AI generation. Upgrade to Lifetime Access to unlock unlimited content repurposing forever.
+              You've used your 5 free AI generations. Upgrade to Lifetime Access to unlock unlimited content repurposing forever.
             </p>
             <button 
               className="bg-white text-black px-6 py-4 rounded-xl font-bold w-full hover:bg-gray-200 transition-colors"
