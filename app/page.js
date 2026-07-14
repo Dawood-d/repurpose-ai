@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { SignInButton, UserButton, Show, useUser } from "@clerk/nextjs";
+import { RegisterLink, LoginLink, LogoutLink } from "@kinde-oss/kinde-auth-nextjs/components";
+import { useKindeBrowserClient } from "@kinde-oss/kinde-auth-nextjs";
 
 export default function Home() {
   const [input, setInput] = useState("");
@@ -10,15 +11,12 @@ export default function Home() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-  // --- CLERK USER HOOK ---
-  const { user } = useUser();
-  const isLifetimeMember = user?.publicMetadata?.plan === "lifetime";
+  // --- KINDE USER HOOK ---
+  const { isAuthenticated, isLoading } = useKindeBrowserClient();
 
   // --- FREEMIUM HOOK STATE ---
   const [generationsUsed, setGenerationsUsed] = useState(0);
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
-  
-  // Set your new limit here
   const MAX_FREE_TRIPS = 5;
 
   const [outputs, setOutputs] = useState({
@@ -30,7 +28,6 @@ export default function Home() {
 
   const tabs = ["instagram", "linkedin", "twitter", "youtube"];
 
-  // Load usage from local storage on mount
   useEffect(() => {
     const usage = localStorage.getItem("repurpose_usage");
     if (usage) setGenerationsUsed(parseInt(usage));
@@ -39,9 +36,7 @@ export default function Home() {
   const generateContent = async () => {
     if (!input.trim()) return;
 
-    // --- FREEMIUM HOOK CHECK ---
-    // If they are NOT a lifetime member AND they hit the limit, show the paywall
-    if (!isLifetimeMember && generationsUsed >= MAX_FREE_TRIPS) {
+    if (generationsUsed >= MAX_FREE_TRIPS) {
       setShowUpgradeModal(true);
       return;
     }
@@ -52,20 +47,13 @@ export default function Home() {
     try {
       const res = await fetch("/api/generate", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          content: input,
-          tone,
-          platform: activeTab,
-        }),
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ content: input, tone, platform: activeTab }),
       });
 
       const data = await res.json();
 
       if (!res.ok) {
-        // If the backend blocks them (402 error), show the upgrade modal
         if (res.status === 402) {
            setShowUpgradeModal(true);
            setLoading(false);
@@ -74,17 +62,11 @@ export default function Home() {
         throw new Error(data.error || "Generation failed");
       }
 
-      setOutputs((prev) => ({
-        ...prev,
-        [activeTab]: data.content,
-      }));
+      setOutputs((prev) => ({ ...prev, [activeTab]: data.content }));
 
-      // Increment usage after successful generation (only if not a lifetime member)
-      if (!isLifetimeMember) {
-        const newUsage = generationsUsed + 1;
-        setGenerationsUsed(newUsage);
-        localStorage.setItem("repurpose_usage", newUsage);
-      }
+      const newUsage = generationsUsed + 1;
+      setGenerationsUsed(newUsage);
+      localStorage.setItem("repurpose_usage", newUsage);
 
     } catch (err) {
       setError(err.message);
@@ -102,7 +84,7 @@ export default function Home() {
     <main className="min-h-screen bg-black text-white p-6 relative">
       <div className="max-w-7xl mx-auto">
         
-        {/* HEADER WITH CLERK AUTH */}
+        {/* HEADER WITH KINDE AUTH */}
         <div className="flex justify-between items-start mb-8">
           <div>
             <h1 className="text-4xl font-bold">AI Repurpose Studio 🚀</h1>
@@ -111,21 +93,20 @@ export default function Home() {
             </p>
           </div>
           
-          <div className="bg-zinc-900 border border-zinc-800 px-4 py-2 rounded-xl flex items-center justify-center">
-            <Show when="signed-out">
-              <SignInButton mode="modal">
-                <button className="text-white font-semibold hover:text-gray-300">Log In</button>
-              </SignInButton>
-            </Show>
-            <Show when="signed-in">
-              <UserButton />
-            </Show>
+          <div className="bg-zinc-900 border border-zinc-800 px-4 py-2 rounded-xl flex items-center justify-center gap-4">
+            {!isLoading && !isAuthenticated ? (
+              <>
+                <LoginLink className="text-white font-semibold hover:text-gray-300">Log In</LoginLink>
+                <RegisterLink className="bg-white text-black px-4 py-1 rounded-lg font-bold">Sign Up</RegisterLink>
+              </>
+            ) : (
+              <LogoutLink className="text-gray-400 hover:text-white">Log Out</LogoutLink>
+            )}
           </div>
         </div>
 
         {/* MAIN WORKSPACE GRID */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* LEFT */}
           <div className="bg-zinc-900 rounded-2xl p-6 border border-zinc-800">
             <h2 className="text-2xl font-semibold mb-6">Content Input</h2>
             <select
@@ -145,12 +126,7 @@ export default function Home() {
               value={input}
               onChange={(e) => {
                 setInput(e.target.value);
-                setOutputs({
-                  instagram: "",
-                  linkedin: "",
-                  twitter: "",
-                  youtube: "",
-                });
+                setOutputs({ instagram: "", linkedin: "", twitter: "", youtube: "" });
               }}
               className="w-full bg-zinc-800 border border-zinc-700 p-4 rounded-2xl resize-none text-white placeholder-gray-400"
             />
@@ -158,13 +134,12 @@ export default function Home() {
             <button
               onClick={generateContent}
               disabled={loading}
-              className="w-full mt-4 bg-white text-black py-4 rounded-2xl font-semibold hover:opacity-90"
+              className="w-full mt-4 bg-white text-black py-4 rounded-2xl font-semibold hover:opacity-90 capitalize"
             >
               {loading ? `Generating ${activeTab}...` : `Generate ${activeTab}`}
             </button>
           </div>
 
-          {/* RIGHT */}
           <div className="bg-zinc-900 rounded-2xl p-6 border border-zinc-800">
             <div className="flex justify-between items-center mb-6">
               <h2 className="text-2xl font-semibold">Output Workspace</h2>
@@ -208,7 +183,6 @@ export default function Home() {
         </div>
       </div>
 
-      {/* UPGRADE MODAL */}
       {showUpgradeModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm">
           <div className="bg-zinc-900 border border-zinc-800 p-8 rounded-2xl text-center max-w-md w-full mx-4 shadow-2xl">

@@ -1,5 +1,5 @@
 import Groq from "groq-sdk";
-import { currentUser, clerkClient } from "@clerk/nextjs/server";
+import { getKindeServerSession } from "@kinde-oss/kinde-auth-nextjs/server";
 
 const groq = new Groq({
   apiKey: process.env.GROQ_API_KEY,
@@ -76,24 +76,12 @@ ${content}
 
 export async function POST(req) {
   try {
-    // 1. Authenticate the user securely on the backend
-    const user = await currentUser();
+    // 1. Authenticate the user securely on the backend using Kinde
+    const { isAuthenticated } = getKindeServerSession();
+    const isAuthed = await isAuthenticated();
     
-    if (!user) {
+    if (!isAuthed) {
       return Response.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
-    // 2. Check the user's plan and their current usage count
-    const isLifetimeMember = user.publicMetadata?.plan === "lifetime";
-    const usageCount = Number(user.privateMetadata?.usageCount) || 0;
-    const MAX_FREE_TRIPS = 5;
-
-    // 3. Enforce the free trial limit
-    if (usageCount >= MAX_FREE_TRIPS && !isLifetimeMember) {
-      return Response.json(
-        { error: "Free trial limit reached. Please upgrade." }, 
-        { status: 402 }
-      );
     }
 
     const { content, tone, platform } = await req.json();
@@ -107,9 +95,9 @@ export async function POST(req) {
 
     const prompt = prompts[platform](content, tone);
 
-    // 4. Generate the AI content
+    // 2. Generate the AI content using an active Groq model tier
     const response = await groq.chat.completions.create({
-      model: "openai/gpt-oss-20b",
+      model: "llama3-8b-8192",
       messages: [
         {
           role: "user",
@@ -118,19 +106,6 @@ export async function POST(req) {
       ],
       temperature: 0.8,
     });
-
-    // 5. If successful and not a lifetime member, increment their usage count
-    if (!isLifetimeMember) {
-      // Initialize the async client required for Clerk v6
-      const client = await clerkClient(); 
-      
-      await client.users.updateUserMetadata(user.id, {
-        privateMetadata: {
-          ...user.privateMetadata, // Preserve any existing private metadata
-          usageCount: usageCount + 1,
-        },
-      });
-    }
 
     return Response.json({
       content: response.choices[0].message.content,
