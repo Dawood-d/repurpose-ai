@@ -12,7 +12,18 @@ export default function Home() {
   const [error, setError] = useState("");
 
   // --- KINDE USER HOOK ---
-  const { isAuthenticated, isLoading } = useKindeBrowserClient();
+  // Added 'user' to pull the logged-in user's profile
+  const { isAuthenticated, isLoading, user } = useKindeBrowserClient();
+
+  // --- VIP WHITELIST ---
+  // Add your email and your friends' emails here
+  const vipEmails = [
+    "md.dawood.dawood.786@gmail.com", 
+    "dawoodmohd3205@gmail.com","evinluis73@gmail.com"
+  ];
+  
+  // Check if the current logged-in user's email is in the VIP list
+  const isVip = user?.email && vipEmails.includes(user.email);
 
   // --- FREEMIUM HOOK STATE ---
   const [generationsUsed, setGenerationsUsed] = useState(0);
@@ -36,7 +47,8 @@ export default function Home() {
   const generateContent = async () => {
     if (!input.trim()) return;
 
-    if (generationsUsed >= MAX_FREE_TRIPS) {
+    // Modified Check: If they are NOT a VIP and have hit the limit, block them
+    if (!isVip && generationsUsed >= MAX_FREE_TRIPS) {
       setShowUpgradeModal(true);
       return;
     }
@@ -62,12 +74,14 @@ export default function Home() {
         throw new Error(data.error || "Generation failed");
       }
 
-      // 🐛 BUG FIXED HERE: Changed data.content to data.text
       setOutputs((prev) => ({ ...prev, [activeTab]: data.text }));
 
-      const newUsage = generationsUsed + 1;
-      setGenerationsUsed(newUsage);
-      localStorage.setItem("repurpose_usage", newUsage);
+      // Only increase the usage count if the user is NOT a VIP
+      if (!isVip) {
+        const newUsage = generationsUsed + 1;
+        setGenerationsUsed(newUsage);
+        localStorage.setItem("repurpose_usage", newUsage);
+      }
 
     } catch (err) {
       setError(err.message);
@@ -101,7 +115,10 @@ export default function Home() {
                 <RegisterLink className="bg-white text-black px-4 py-1 rounded-lg font-bold">Sign Up</RegisterLink>
               </>
             ) : (
-              <LogoutLink className="text-gray-400 hover:text-white">Log Out</LogoutLink>
+              <div className="flex items-center gap-4">
+                {isVip && <span className="bg-green-500/20 text-green-400 px-2 py-1 rounded text-xs font-bold uppercase tracking-wider">VIP Access</span>}
+                <LogoutLink className="text-gray-400 hover:text-white">Log Out</LogoutLink>
+              </div>
             )}
           </div>
         </div>
