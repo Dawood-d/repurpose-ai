@@ -62,7 +62,8 @@ export default function Home() {
         throw new Error(data.error || "Generation failed");
       }
 
-      setOutputs((prev) => ({ ...prev, [activeTab]: data.content }));
+      // 🐛 BUG FIXED HERE: Changed data.content to data.text
+      setOutputs((prev) => ({ ...prev, [activeTab]: data.text }));
 
       const newUsage = generationsUsed + 1;
       setGenerationsUsed(newUsage);
@@ -122,7 +123,7 @@ export default function Home() {
 
             <textarea
               rows={18}
-              placeholder="Paste blog/article content here..."
+              placeholder="Paste blog/article content here or a URL..."
               value={input}
               onChange={(e) => {
                 setInput(e.target.value);
