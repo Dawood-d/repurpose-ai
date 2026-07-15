@@ -1,5 +1,5 @@
-import Groq from "groq-sdk";
 import { getKindeServerSession } from "@kinde-oss/kinde-auth-nextjs/server";
+import Groq from "groq-sdk";
 
 const groq = new Groq({
   apiKey: process.env.GROQ_API_KEY,
@@ -65,28 +65,45 @@ Content to repurpose:
 ${content}`,
 };
 
-export async function POST(req) {
+export async function POST(request) {
   try {
-    // 1. Authenticate the user securely on the backend using Kinde
+    // 1. Kinde Authentication Check
     const { isAuthenticated } = getKindeServerSession();
-    const isAuthed = await isAuthenticated();
+    const isUserAuthenticated = await isAuthenticated();
     
-    if (!isAuthed) {
+    if (!isUserAuthenticated) {
       return Response.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const { content, tone, platform } = await req.json();
+    // 2. Grab the user's input from the frontend
+    const { platform, content, tone } = await request.json();
 
-    if (!content || !platform) {
-      return Response.json(
-        { error: "Missing content or platform" },
-        { status: 400 }
-      );
+    // 3. THE NEW URL SCRAPER MAGIC
+    let textToProcess = content;
+    
+    // Check if the input starts with http:// or https://
+    const isUrl = /^(https?:\/\/[^\s]+)/.test(content.trim());
+
+    if (isUrl) {
+      try {
+        // Fetch the clean article text using Jina Reader
+        const scrapeResponse = await fetch(`https://r.jina.ai/${content.trim()}`);
+        if (!scrapeResponse.ok) throw new Error("Scrape failed");
+        
+        // Overwrite the URL with the actual scraped article text
+        textToProcess = await scrapeResponse.text();
+      } catch (error) {
+        return Response.json(
+          { error: "Could not read that URL. Please try pasting the text directly." },
+          { status: 400 }
+        );
+      }
     }
 
-    const prompt = prompts[platform](content, tone);
+    // 4. Select the right prompt
+    const prompt = prompts[platform](textToProcess, tone || "professional");
 
-    // 2. Generate the AI content using an active Groq model tier
+    // 5. Generate the AI content using Groq
     const response = await groq.chat.completions.create({
       model: "llama-3.1-8b-instant",
       messages: [
@@ -98,20 +115,11 @@ export async function POST(req) {
       temperature: 0.8,
     });
 
-    return Response.json({
-      content: response.choices[0].message.content,
-    });
+    // 6. Return the response to the frontend
+    return Response.json({ text: response.choices[0].message.content });
 
   } catch (error) {
-    console.error(error);
-
-    return Response.json(
-      {
-        error: error.message || "Generation failed",
-      },
-      {
-        status: 500,
-      }
-    );
+    console.error("Error generating content:", error);
+    return Response.json({ error: "Internal Server Error" }, { status: 500 });
   }
 }
