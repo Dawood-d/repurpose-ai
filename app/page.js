@@ -12,15 +12,12 @@ export default function Home() {
   const [error, setError] = useState("");
 
   // --- KINDE USER HOOK ---
-  // Added 'user' to pull the logged-in user's profile
   const { isAuthenticated, isLoading, user } = useKindeBrowserClient();
 
-  // --- VIP WHITELIST ---
-  // Add your email and your friends' emails here
-  const vipEmails = [
-    "md.dawood.dawood.786@gmail.com", 
-    "dawoodmohd3205@gmail.com","evinluis73@gmail.com"
-  ];
+  // --- VIP WHITELIST (SECURE) ---
+  // Pulls from your hidden environment variable, splits by comma into an array
+  const vipEmailsString = process.env.NEXT_PUBLIC_VIP_EMAILS || "";
+  const vipEmails = vipEmailsString.split(",").map(email => email.trim());
   
   // Check if the current logged-in user's email is in the VIP list
   const isVip = user?.email && vipEmails.includes(user.email);

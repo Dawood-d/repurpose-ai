@@ -100,10 +100,17 @@ export async function POST(request) {
       }
     }
 
-    // 4. Select the right prompt
+    // 4. GROQ TOKEN LIMIT SAFETY VALVE
+    // 1 token is roughly 4 characters. 6000 tokens = ~24,000 characters.
+    // We cap the text at 15,000 characters to leave plenty of room for the prompt and the AI's response.
+    if (textToProcess.length > 15000) {
+      textToProcess = textToProcess.substring(0, 15000) + "\n\n... [Content truncated due to length limits]";
+    }
+
+    // 5. Select the right prompt
     const prompt = prompts[platform](textToProcess, tone || "professional");
 
-    // 5. Generate the AI content using Groq
+    // 6. Generate the AI content using Groq
     const response = await groq.chat.completions.create({
       model: "llama-3.1-8b-instant",
       messages: [
@@ -115,7 +122,7 @@ export async function POST(request) {
       temperature: 0.8,
     });
 
-    // 6. Return the response to the frontend
+    // 7. Return the response to the frontend
     return Response.json({ text: response.choices[0].message.content });
 
   } catch (error) {
