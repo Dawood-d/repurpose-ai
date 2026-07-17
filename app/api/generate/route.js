@@ -6,62 +6,73 @@ const groq = new Groq({
 });
 
 const prompts = {
-  instagram: (content, tone) => `You are an elite social media strategist.
-Analyze the following content and extract the most valuable insights.
-Tone: ${tone} (Ensure the voice sounds human, relatable, and avoids cliché AI jargon like "delve", "unlock", or "in today's digital landscape").
+  instagram: (content, tone) => `You are an elite, high-level social media copywriter and brand strategist.
+Analyze the following source content and transform it into comprehensive, ready-to-publish Instagram content. Avoid all robotic AI buzzwords like "delve", "unlock", or "game-changer".
+Tone: ${tone} (Human, authentic, compelling, and engaging).
 
-Create high-converting Instagram content formatted in plain text.
+Provide the following in full detail (do not abbreviate or summarize):
 
-Include:
-1. TWO CAPTIONS: Start with a scroll-stopping hook. Use short paragraphs. End with a clear Call to Action (CTA). Include 3-5 relevant hashtags.
-2. ONE CAROUSEL IDEA: Break down a concept into 4-5 slides. Provide the specific text for each slide (Slide 1: [Hook], Slide 2: [Value], etc.).
-3. ONE REEL IDEA: Provide a 3-second visual hook, the core audio/speaking script, and a text-on-screen suggestion.
+1. TWO FULL-LENGTH CAPTIONS:
+   - Caption 1 (Storytelling & Authority): Write a complete, multi-paragraph caption with a scroll-stopping hook, a narrative body that expands on the core ideas, a strong Call to Action (CTA), and 5 targeted hashtags.
+   - Caption 2 (Direct Value / Listicle Style): Write an alternative, high-retention breakdown caption with bullet points, actionable takeaways, a CTA, and 5 targeted hashtags.
 
-Content to repurpose:
+2. DETAILED CAROUSEL SCRIPT (6-8 Slides):
+   - Provide complete text copy for every single slide. 
+   - Slide 1: High-impact hook headline and subtitle.
+   - Slides 2-6: Detailed content blocks with deep explanations, data points, or step-by-step breakdowns.
+   - Final Slide: Strong closing summary and CTA.
+
+3. COMPREHENSIVE REEL / TIKTOK SCRIPT (60 seconds):
+   - Visual Cues: Exact directions for what is shown on screen.
+   - Spoken Audio Script: Word-for-word, conversational dialogue designed for high retention.
+   - On-Screen Text Overlays: Exact text snippets to display.
+
+Source content to repurpose:
 ${content}`,
 
-  linkedin: (content, tone) => `You are a top-tier B2B content strategist.
-Analyze the following content and create a highly engaging LinkedIn post.
-Tone: ${tone} (Must sound like a real industry professional. No robotic language, no fluff).
+  linkedin: (content, tone) => `You are a top-tier B2B executive ghostwriter and thought leader.
+Analyze the source content and write an in-depth, high-authority LinkedIn post. 
+Tone: ${tone} (Sharp, professional, insightful, and conversational. No corporate fluff).
 
-Format requirements:
-- Start with a strong, contrarian, or thought-provoking 1-line hook.
+Formatting & Depth Requirements:
+- Start with a contrarian, bold, or deeply analytical 1-line hook.
 - Leave a blank line after the hook.
-- Use short, punchy sentences (1-3 lines max per paragraph) for easy skimming.
-- Include a bulleted list of 2-3 actionable takeaways.
-- End with a question to drive comments.
+- Write a substantial body (150-250 words total) using short, punchy paragraphs (1-3 sentences max) to ensure maximum readability and dwell time.
+- Include a structured section detailing 3 deep, actionable takeaways or professional insights.
+- End with a thought-provoking question that naturally drives high-value comments and discussion.
 - Return plain text only.
 
-Content to repurpose:
+Source content to repurpose:
 ${content}`,
 
-  twitter: (content, tone) => `You are a viral ghostwriter on X (Twitter).
-Analyze the following content and create high-impact tweets.
-Tone: ${tone} (Punchy, concise, and highly opinionated. No hashtags. Talk like a real person).
+  twitter: (content, tone) => `You are an expert ghostwriter on X (Twitter).
+Analyze the source content and craft an extensive, high-impact thread and standalone tweets.
+Tone: ${tone} (Punchy, sharp, highly opinionated, zero fluff).
 
 Include:
-1. ONE THREAD (4-5 tweets):
-   - Tweet 1: The hook. Make a bold claim or promise immense value.
-   - Tweets 2-4: The core value, broken down simply.
-   - Tweet 5: The wrap-up and CTA.
-2. TWO STANDALONE TWEETS: Short, punchy, under 280 characters. Focus on one single, strong idea each.
+1. A DEEP THREAD (6-8 Tweets):
+   - Tweet 1: The killer hook making a bold promise or claim.
+   - Tweets 2-6: Thorough, step-by-step breakdown of the core insights, concepts, or value.
+   - Tweet 7: Summary or synthesis.
+   - Tweet 8: Call to Action (like, repost, or follow).
+   
+2. TWO STANDALONE TWEETS:
+   - High-impact, standalone thoughts under 280 characters that can be posted independently.
 
 Return plain text only.
-Content to repurpose:
+Source content to repurpose:
 ${content}`,
 
-  youtube: (content, tone) => `You are a viral YouTube Shorts producer.
-Create a highly engaging script for a 30-60 second Short based on the content below.
-Tone: ${tone} (Fast-paced, high energy, conversational).
+  youtube: (content, tone) => `You are an expert YouTube Shorts and Reels creative director.
+Write a full-length, highly engaging script for a 60-second video based on the source text.
+Tone: ${tone} (Fast-paced, high energy, engaging, natural dialogue).
 
-Format as plain text with the following structure:
-- [0:00-0:03] HOOK: A bold statement or question that demands attention immediately.
-- [0:03-0:45] BODY: The core value delivered rapidly. Use quick transitions.
-- [0:45-0:60] CTA / LOOP: A seamless ending that encourages re-watching or subscribing.
+Format as plain text with explicit, granular timestamps:
+- [0:00-0:05] THE HOOK: Word-for-word spoken script + precise visual direction to capture attention instantly.
+- [0:05-0:45] THE CORE VALUE: Detailed explanations, examples, or steps delivered rapidly with visual transition notes.
+- [0:45-1:00] THE PAYOFF & CTA: High-retention ending, strong loop potential, and clear call-to-action to subscribe or engage.
 
-Provide both the "Spoken Script" and "Visual Cues" (what the viewer should see on screen).
-
-Content to repurpose:
+Source content to repurpose:
 ${content}`,
 };
 
@@ -75,22 +86,17 @@ export async function POST(request) {
       return Response.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    // 2. Grab the user's input from the frontend
+    // 2. Grab frontend input
     const { platform, content, tone } = await request.json();
 
-    // 3. THE NEW URL SCRAPER MAGIC
+    // 3. URL Scraper logic
     let textToProcess = content;
-    
-    // Check if the input starts with http:// or https://
     const isUrl = /^(https?:\/\/[^\s]+)/.test(content.trim());
 
     if (isUrl) {
       try {
-        // Fetch the clean article text using Jina Reader
         const scrapeResponse = await fetch(`https://r.jina.ai/${content.trim()}`);
         if (!scrapeResponse.ok) throw new Error("Scrape failed");
-        
-        // Overwrite the URL with the actual scraped article text
         textToProcess = await scrapeResponse.text();
       } catch (error) {
         return Response.json(
@@ -100,17 +106,15 @@ export async function POST(request) {
       }
     }
 
-    // 4. GROQ TOKEN LIMIT SAFETY VALVE
-    // 1 token is roughly 4 characters. 6000 tokens = ~24,000 characters.
-    // We cap the text at 15,000 characters to leave plenty of room for the prompt and the AI's response.
+    // 4. Token limit safety valve (~15,000 characters max)
     if (textToProcess.length > 15000) {
       textToProcess = textToProcess.substring(0, 15000) + "\n\n... [Content truncated due to length limits]";
     }
 
-    // 5. Select the right prompt
-    const prompt = prompts[platform](textToProcess, tone || "professional");
+    // 5. Select prompt
+    const prompt = prompts[platform](textToProcess, tone || "Professional");
 
-    // 6. Generate the AI content using Groq
+    // 6. Generate via Groq (Increased max_tokens to allow full-length output)
     const response = await groq.chat.completions.create({
       model: "llama-3.1-8b-instant",
       messages: [
@@ -120,9 +124,9 @@ export async function POST(request) {
         },
       ],
       temperature: 0.8,
+      max_tokens: 2000,
     });
 
-    // 7. Return the response to the frontend
     return Response.json({ text: response.choices[0].message.content });
 
   } catch (error) {
