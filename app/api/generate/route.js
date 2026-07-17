@@ -106,15 +106,15 @@ export async function POST(request) {
       }
     }
 
-    // 4. Token limit safety valve (~15,000 characters max)
-    if (textToProcess.length > 15000) {
-      textToProcess = textToProcess.substring(0, 15000) + "\n\n... [Content truncated due to length limits]";
+    // 4. Token limit safety valve (Reduced to 10,000 chars to leave room for long outputs)
+    if (textToProcess.length > 10000) {
+      textToProcess = textToProcess.substring(0, 10000) + "\n\n... [Content truncated due to length limits]";
     }
 
     // 5. Select prompt
     const prompt = prompts[platform](textToProcess, tone || "Professional");
 
-    // 6. Generate via Groq (Increased max_tokens to allow full-length output)
+    // 6. Generate via Groq
     const response = await groq.chat.completions.create({
       model: "llama-3.1-8b-instant",
       messages: [
