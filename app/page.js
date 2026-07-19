@@ -10,19 +10,17 @@ export default function Home() {
   const [activeTab, setActiveTab] = useState("instagram");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  
+  // --- NEW: Cooldown State ---
+  const [cooldown, setCooldown] = useState(0);
 
-  // --- KINDE USER HOOK ---
   const { isAuthenticated, isLoading, user } = useKindeBrowserClient();
 
-  // --- VIP WHITELIST (SECURE) ---
-  // Pulls from your hidden environment variable, splits by comma into an array
   const vipEmailsString = process.env.NEXT_PUBLIC_VIP_EMAILS || "";
   const vipEmails = vipEmailsString.split(",").map(email => email.trim());
   
-  // Check if the current logged-in user's email is in the VIP list
   const isVip = user?.email && vipEmails.includes(user.email);
 
-  // --- FREEMIUM HOOK STATE ---
   const [generationsUsed, setGenerationsUsed] = useState(0);
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
   const MAX_FREE_TRIPS = 5;
@@ -36,6 +34,14 @@ export default function Home() {
 
   const tabs = ["instagram", "linkedin", "twitter", "youtube"];
 
+  // --- NEW: UI Cooldown Timer Effect ---
+  useEffect(() => {
+    if (cooldown > 0) {
+      const timer = setTimeout(() => setCooldown(cooldown - 1), 1000);
+      return () => clearTimeout(timer);
+    }
+  }, [cooldown]);
+
   useEffect(() => {
     const usage = localStorage.getItem("repurpose_usage");
     if (usage) setGenerationsUsed(parseInt(usage));
@@ -44,7 +50,6 @@ export default function Home() {
   const generateContent = async () => {
     if (!input.trim()) return;
 
-    // Modified Check: If they are NOT a VIP and have hit the limit, block them
     if (!isVip && generationsUsed >= MAX_FREE_TRIPS) {
       setShowUpgradeModal(true);
       return;
@@ -73,7 +78,6 @@ export default function Home() {
 
       setOutputs((prev) => ({ ...prev, [activeTab]: data.text }));
 
-      // Only increase the usage count if the user is NOT a VIP
       if (!isVip) {
         const newUsage = generationsUsed + 1;
         setGenerationsUsed(newUsage);
@@ -85,6 +89,8 @@ export default function Home() {
     }
 
     setLoading(false);
+    // --- NEW: Start the 30-second countdown ---
+    setCooldown(30); 
   };
 
   const copyText = () => {
@@ -96,7 +102,6 @@ export default function Home() {
     <main className="min-h-screen bg-black text-white p-6 relative">
       <div className="max-w-7xl mx-auto">
         
-        {/* HEADER WITH KINDE AUTH */}
         <div className="flex justify-between items-start mb-8">
           <div>
             <h1 className="text-4xl font-bold">AI Repurpose Studio 🚀</h1>
@@ -120,7 +125,6 @@ export default function Home() {
           </div>
         </div>
 
-        {/* MAIN WORKSPACE GRID */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <div className="bg-zinc-900 rounded-2xl p-6 border border-zinc-800">
             <h2 className="text-2xl font-semibold mb-6">Content Input</h2>
@@ -146,12 +150,17 @@ export default function Home() {
               className="w-full bg-zinc-800 border border-zinc-700 p-4 rounded-2xl resize-none text-white placeholder-gray-400"
             />
 
+            {/* NEW: Button disabled logic and countdown text */}
             <button
               onClick={generateContent}
-              disabled={loading}
-              className="w-full mt-4 bg-white text-black py-4 rounded-2xl font-semibold hover:opacity-90 capitalize"
+              disabled={loading || cooldown > 0}
+              className="w-full mt-4 bg-white text-black py-4 rounded-2xl font-semibold hover:opacity-90 capitalize disabled:opacity-50 disabled:cursor-not-allowed transition-all"
             >
-              {loading ? `Generating ${activeTab}...` : `Generate ${activeTab}`}
+              {loading 
+                ? `Generating ${activeTab}...` 
+                : cooldown > 0 
+                  ? `Wait ${cooldown}s to generate again` 
+                  : `Generate ${activeTab}`}
             </button>
           </div>
 
@@ -187,9 +196,9 @@ export default function Home() {
               {!loading && !outputs[activeTab] && (
                 <div className="text-gray-500">Select a platform and click Generate</div>
               )}
-              {error && <div className="text-red-400">{error}</div>}
+              {error && <div className="text-red-400 font-medium p-4 bg-red-900/20 rounded-xl border border-red-900/50">{error}</div>}
               {outputs[activeTab] && (
-                <pre className="whitespace-pre-wrap text-sm leading-7">
+                <pre className="whitespace-pre-wrap text-sm leading-7 font-sans">
                   {outputs[activeTab]}
                 </pre>
               )}
