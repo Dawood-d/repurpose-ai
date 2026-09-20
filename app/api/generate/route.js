@@ -78,7 +78,6 @@ ${content}`,
 
 export async function POST(request) {
   try {
-    // 1. Kinde Authentication Check
     const { isAuthenticated } = getKindeServerSession();
     const isUserAuthenticated = await isAuthenticated();
     
@@ -86,10 +85,8 @@ export async function POST(request) {
       return Response.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    // 2. Grab frontend input
     const { platform, content, tone } = await request.json();
 
-    // 3. URL Scraper logic
     let textToProcess = content;
     const isUrl = /^(https?:\/\/[^\s]+)/.test(content.trim());
 
@@ -106,17 +103,15 @@ export async function POST(request) {
       }
     }
 
-    // 4. Token limit safety valve (Reduced to 10,000 chars to leave room for long outputs)
     if (textToProcess.length > 10000) {
       textToProcess = textToProcess.substring(0, 10000) + "\n\n... [Content truncated due to length limits]";
     }
 
-    // 5. Select prompt
     const prompt = prompts[platform](textToProcess, tone || "Professional");
 
-    // 6. Generate via Groq
+    // Using the upgraded model
     const response = await groq.chat.completions.create({
-      model: "llama-3.1-8b-instant",
+      model: "openai/gpt-oss-120b", 
       messages: [
         {
           role: "user",
@@ -131,6 +126,14 @@ export async function POST(request) {
 
   } catch (error) {
     console.error("Error generating content:", error);
+    
+    if (error.status === 429 || error?.error?.code === 'rate_limit_exceeded') {
+      return Response.json(
+        { error: "Too many people are using the app right now! Please wait 30 seconds and try again." }, 
+        { status: 429 }
+      );
+    }
+
     return Response.json({ error: "Internal Server Error" }, { status: 500 });
   }
 }
