@@ -11,7 +11,6 @@ export default function Home() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   
-  // --- NEW: Cooldown State ---
   const [cooldown, setCooldown] = useState(0);
 
   const { isAuthenticated, isLoading, user } = useKindeBrowserClient();
@@ -34,18 +33,31 @@ export default function Home() {
 
   const tabs = ["instagram", "linkedin", "twitter", "youtube"];
 
-  // --- NEW: UI Cooldown Timer Effect ---
+  // --- UPDATE 1: Check localStorage on Page Load ---
+  useEffect(() => {
+    // Check if there is an active cooldown saved in the browser
+    const cooldownEnd = localStorage.getItem("repurpose_cooldown_end");
+    if (cooldownEnd) {
+      const remainingTime = Math.ceil((parseInt(cooldownEnd) - Date.now()) / 1000);
+      if (remainingTime > 0) {
+        setCooldown(remainingTime);
+      } else {
+        localStorage.removeItem("repurpose_cooldown_end"); // Clean up expired timer
+      }
+    }
+
+    // Load the paywall usage count
+    const usage = localStorage.getItem("repurpose_usage");
+    if (usage) setGenerationsUsed(parseInt(usage));
+  }, []);
+
+  // --- UPDATE 2: Timer Tick Mechanism ---
   useEffect(() => {
     if (cooldown > 0) {
       const timer = setTimeout(() => setCooldown(cooldown - 1), 1000);
       return () => clearTimeout(timer);
     }
   }, [cooldown]);
-
-  useEffect(() => {
-    const usage = localStorage.getItem("repurpose_usage");
-    if (usage) setGenerationsUsed(parseInt(usage));
-  }, []);
 
   const generateContent = async () => {
     if (!input.trim()) return;
@@ -89,8 +101,10 @@ export default function Home() {
     }
 
     setLoading(false);
-    // --- NEW: Start the 30-second countdown ---
+    
+    // --- UPDATE 3: Start timer and save end-timestamp in localStorage ---
     setCooldown(30); 
+    localStorage.setItem("repurpose_cooldown_end", (Date.now() + 30000).toString());
   };
 
   const copyText = () => {
@@ -150,7 +164,6 @@ export default function Home() {
               className="w-full bg-zinc-800 border border-zinc-700 p-4 rounded-2xl resize-none text-white placeholder-gray-400"
             />
 
-            {/* NEW: Button disabled logic and countdown text */}
             <button
               onClick={generateContent}
               disabled={loading || cooldown > 0}
