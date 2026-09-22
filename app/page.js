@@ -33,25 +33,21 @@ export default function Home() {
 
   const tabs = ["instagram", "linkedin", "twitter", "youtube"];
 
-  // --- UPDATE 1: Check localStorage on Page Load ---
   useEffect(() => {
-    // Check if there is an active cooldown saved in the browser
     const cooldownEnd = localStorage.getItem("repurpose_cooldown_end");
     if (cooldownEnd) {
       const remainingTime = Math.ceil((parseInt(cooldownEnd) - Date.now()) / 1000);
       if (remainingTime > 0) {
         setCooldown(remainingTime);
       } else {
-        localStorage.removeItem("repurpose_cooldown_end"); // Clean up expired timer
+        localStorage.removeItem("repurpose_cooldown_end");
       }
     }
 
-    // Load the paywall usage count
     const usage = localStorage.getItem("repurpose_usage");
     if (usage) setGenerationsUsed(parseInt(usage));
   }, []);
 
-  // --- UPDATE 2: Timer Tick Mechanism ---
   useEffect(() => {
     if (cooldown > 0) {
       const timer = setTimeout(() => setCooldown(cooldown - 1), 1000);
@@ -101,8 +97,6 @@ export default function Home() {
     }
 
     setLoading(false);
-    
-    // --- UPDATE 3: Start timer and save end-timestamp in localStorage ---
     setCooldown(30); 
     localStorage.setItem("repurpose_cooldown_end", (Date.now() + 30000).toString());
   };
@@ -112,40 +106,117 @@ export default function Home() {
     alert("Copied");
   };
 
+  // --- STATE 1: LOADING ---
+  if (isLoading) {
+    return (
+      <main className="min-h-screen bg-black text-white flex items-center justify-center">
+        <div className="animate-pulse text-zinc-500 font-semibold tracking-widest uppercase text-sm">
+          Loading Studio...
+        </div>
+      </main>
+    );
+  }
+
+  // --- STATE 2: MARKETING LANDING PAGE (Unauthenticated) ---
+  if (!isAuthenticated) {
+    return (
+      <main className="min-h-screen bg-black text-white selection:bg-white selection:text-black font-sans">
+        {/* Navbar */}
+        <nav className="max-w-7xl mx-auto px-6 py-6 flex justify-between items-center border-b border-zinc-900">
+          <div className="flex items-center gap-2">
+            <span className="text-2xl">🚀</span>
+            <span className="text-xl font-bold tracking-tight">AI Repurpose Studio</span>
+          </div>
+          <div className="flex items-center gap-6">
+            <LoginLink className="text-sm font-semibold text-zinc-400 hover:text-white transition-colors">Log In</LoginLink>
+            <RegisterLink className="bg-white text-black px-5 py-2.5 rounded-full text-sm font-bold hover:bg-zinc-200 transition-all shadow-[0_0_15px_rgba(255,255,255,0.3)]">
+              Get Started Free
+            </RegisterLink>
+          </div>
+        </nav>
+
+        {/* Hero Section */}
+        <section className="max-w-5xl mx-auto px-6 py-32 text-center flex flex-col items-center">
+          <div className="bg-zinc-900 border border-zinc-800 text-zinc-300 text-xs px-4 py-1.5 rounded-full uppercase tracking-widest font-semibold mb-8 flex items-center gap-2">
+            <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>
+            Built for Modern Creators
+          </div>
+          
+          <h1 className="text-5xl md:text-7xl font-extrabold tracking-tight mb-8 leading-tight">
+            Turn One Blog Into <br className="hidden md:block"/>
+            <span className="text-transparent bg-clip-text bg-gradient-to-r from-white to-zinc-500">Weeks of Social Content.</span>
+          </h1>
+          
+          <p className="text-lg md:text-xl text-zinc-400 mb-12 max-w-2xl leading-relaxed">
+            Instantly transform any article, URL, or notes into high-converting Instagram carousels, LinkedIn thought-leadership posts, Twitter threads, and YouTube scripts.
+          </p>
+          
+          <RegisterLink className="bg-white text-black px-8 py-4 rounded-2xl font-bold text-lg hover:scale-105 transition-all shadow-[0_0_30px_rgba(255,255,255,0.2)]">
+            Start Repurposing For Free →
+          </RegisterLink>
+
+          <p className="text-sm text-zinc-500 mt-6 font-medium">No credit card required. 5 free generations.</p>
+        </section>
+
+        {/* Mini Feature Grid */}
+        <section className="max-w-7xl mx-auto px-6 pb-32">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {[
+              { title: "Smart Scraping", desc: "Just paste a URL. Our AI instantly reads and extracts the core value from any blog post." },
+              { title: "Platform Native", desc: "Generates proper formatting, threads, and hooks designed specifically for the algorithm of each platform." },
+              { title: "Custom Tones", desc: "Match your personal brand. Switch between Professional, Storytelling, Viral, and Educational voices." }
+            ].map((feature, i) => (
+              <div key={i} className="bg-zinc-900/50 border border-zinc-800 p-8 rounded-3xl">
+                <h3 className="text-xl font-bold mb-3">{feature.title}</h3>
+                <p className="text-zinc-400 leading-relaxed">{feature.desc}</p>
+              </div>
+            ))}
+          </div>
+        </section>
+      </main>
+    );
+  }
+
+  // --- STATE 3: APP WORKSPACE (Authenticated) ---
   return (
     <main className="min-h-screen bg-black text-white p-6 relative">
       <div className="max-w-7xl mx-auto">
         
-        <div className="flex justify-between items-start mb-8">
-          <div>
-            <h1 className="text-4xl font-bold">AI Repurpose Studio 🚀</h1>
-            <p className="text-gray-400 mt-2">
-              Repurpose blogs into platform-ready social content
-            </p>
+        {/* Workspace Header */}
+        <div className="flex justify-between items-center mb-8 border-b border-zinc-900 pb-6">
+          <div className="flex items-center gap-3">
+            <span className="text-2xl">🚀</span>
+            <div>
+              <h1 className="text-2xl font-bold tracking-tight">RepurposeAI</h1>
+              <p className="text-zinc-500 text-sm mt-1">Repurpose your content</p>
+            </div>
           </div>
           
-          <div className="bg-zinc-900 border border-zinc-800 px-4 py-2 rounded-xl flex items-center justify-center gap-4">
-            {!isLoading && !isAuthenticated ? (
-              <>
-                <LoginLink className="text-white font-semibold hover:text-gray-300">Log In</LoginLink>
-                <RegisterLink className="bg-white text-black px-4 py-1 rounded-lg font-bold">Sign Up</RegisterLink>
-              </>
-            ) : (
-              <div className="flex items-center gap-4">
-                {isVip && <span className="bg-green-500/20 text-green-400 px-2 py-1 rounded text-xs font-bold uppercase tracking-wider">VIP Access</span>}
-                <LogoutLink className="text-gray-400 hover:text-white">Log Out</LogoutLink>
-              </div>
+          <div className="flex items-center gap-4 bg-zinc-900 border border-zinc-800 px-4 py-2 rounded-xl">
+            {isVip && (
+              <span className="bg-green-500/10 text-green-400 border border-green-500/20 px-2 py-1 rounded text-xs font-bold uppercase tracking-wider">
+                VIP Access
+              </span>
             )}
+            <div className="w-px h-4 bg-zinc-700 hidden sm:block"></div>
+            <LogoutLink className="text-sm font-semibold text-zinc-400 hover:text-white transition-colors">
+              Log Out
+            </LogoutLink>
           </div>
         </div>
 
+        {/* Tool Grid */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <div className="bg-zinc-900 rounded-2xl p-6 border border-zinc-800">
-            <h2 className="text-2xl font-semibold mb-6">Content Input</h2>
+          {/* Left Column: Input */}
+          <div className="bg-zinc-900 rounded-3xl p-6 border border-zinc-800 flex flex-col">
+            <div className="flex justify-between items-center mb-6">
+              <h2 className="text-xl font-bold">Source Content</h2>
+            </div>
+            
             <select
               value={tone}
               onChange={(e) => setTone(e.target.value)}
-              className="w-full bg-zinc-800 border border-zinc-700 p-3 rounded-xl mb-4 text-white"
+              className="w-full bg-zinc-800/50 border border-zinc-700 p-3 rounded-xl mb-4 text-white font-medium focus:outline-none focus:border-zinc-500 transition-colors cursor-pointer"
             >
               <option>Professional</option>
               <option>Viral</option>
@@ -154,20 +225,20 @@ export default function Home() {
             </select>
 
             <textarea
-              rows={18}
+              rows={16}
               placeholder="Paste blog/article content here or a URL..."
               value={input}
               onChange={(e) => {
                 setInput(e.target.value);
                 setOutputs({ instagram: "", linkedin: "", twitter: "", youtube: "" });
               }}
-              className="w-full bg-zinc-800 border border-zinc-700 p-4 rounded-2xl resize-none text-white placeholder-gray-400"
+              className="w-full flex-grow bg-zinc-800/50 border border-zinc-700 p-5 rounded-2xl resize-none text-white placeholder-zinc-500 focus:outline-none focus:border-zinc-500 transition-colors font-sans leading-relaxed"
             />
 
             <button
               onClick={generateContent}
               disabled={loading || cooldown > 0}
-              className="w-full mt-4 bg-white text-black py-4 rounded-2xl font-semibold hover:opacity-90 capitalize disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+              className="w-full mt-4 bg-white text-black py-4 rounded-xl font-bold hover:bg-zinc-200 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-lg"
             >
               {loading 
                 ? `Generating ${activeTab}...` 
@@ -177,26 +248,29 @@ export default function Home() {
             </button>
           </div>
 
-          <div className="bg-zinc-900 rounded-2xl p-6 border border-zinc-800">
+          {/* Right Column: Output */}
+          <div className="bg-zinc-900 rounded-3xl p-6 border border-zinc-800 flex flex-col">
             <div className="flex justify-between items-center mb-6">
-              <h2 className="text-2xl font-semibold">Output Workspace</h2>
+              <h2 className="text-xl font-bold">Output</h2>
               {outputs[activeTab] && (
                 <button
                   onClick={copyText}
-                  className="bg-zinc-700 px-4 py-2 rounded-xl hover:bg-zinc-600"
+                  className="bg-zinc-800 text-sm font-semibold px-4 py-2 rounded-lg hover:bg-zinc-700 transition-colors border border-zinc-700"
                 >
-                  Copy
+                  Copy Text
                 </button>
               )}
             </div>
 
-            <div className="flex gap-3 flex-wrap mb-6">
+            <div className="flex gap-2 flex-wrap mb-6">
               {tabs.map((tab) => (
                 <button
                   key={tab}
                   onClick={() => setActiveTab(tab)}
-                  className={`px-5 py-2 rounded-xl capitalize ${
-                    activeTab === tab ? "bg-white text-black" : "bg-zinc-800 text-gray-300"
+                  className={`px-4 py-2 rounded-lg text-sm font-bold capitalize transition-colors ${
+                    activeTab === tab 
+                      ? "bg-white text-black shadow-md" 
+                      : "bg-zinc-800 text-zinc-400 hover:text-white border border-zinc-700"
                   }`}
                 >
                   {tab}
@@ -204,14 +278,24 @@ export default function Home() {
               ))}
             </div>
 
-            <div className="bg-zinc-800 rounded-2xl p-5 min-h-[550px] overflow-y-auto">
-              {loading && <div className="text-gray-400">Generating {activeTab} content...</div>}
-              {!loading && !outputs[activeTab] && (
-                <div className="text-gray-500">Select a platform and click Generate</div>
+            <div className="bg-zinc-800/30 border border-zinc-800 rounded-2xl p-6 flex-grow overflow-y-auto max-h-[500px]">
+              {loading && (
+                <div className="h-full flex items-center justify-center text-zinc-500 font-medium animate-pulse">
+                  Crafting your {activeTab} content...
+                </div>
               )}
-              {error && <div className="text-red-400 font-medium p-4 bg-red-900/20 rounded-xl border border-red-900/50">{error}</div>}
+              {!loading && !outputs[activeTab] && !error && (
+                <div className="h-full flex items-center justify-center text-zinc-600 font-medium">
+                  Select a platform and click Generate
+                </div>
+              )}
+              {error && (
+                <div className="text-red-400 text-sm font-medium p-4 bg-red-900/10 rounded-xl border border-red-900/30">
+                  {error}
+                </div>
+              )}
               {outputs[activeTab] && (
-                <pre className="whitespace-pre-wrap text-sm leading-7 font-sans">
+                <pre className="whitespace-pre-wrap text-[15px] leading-relaxed font-sans text-zinc-300">
                   {outputs[activeTab]}
                 </pre>
               )}
@@ -220,21 +304,23 @@ export default function Home() {
         </div>
       </div>
 
+      {/* Paywall Modal */}
       {showUpgradeModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm">
-          <div className="bg-zinc-900 border border-zinc-800 p-8 rounded-2xl text-center max-w-md w-full mx-4 shadow-2xl">
-            <h2 className="text-2xl font-bold mb-3 text-white">Out of Free Credits! 🚀</h2>
-            <p className="text-gray-400 mb-8">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 backdrop-blur-md">
+          <div className="bg-zinc-900 border border-zinc-800 p-10 rounded-3xl text-center max-w-md w-full mx-4 shadow-2xl">
+            <div className="text-4xl mb-4">🚀</div>
+            <h2 className="text-2xl font-bold mb-3 text-white">Out of Free Credits!</h2>
+            <p className="text-zinc-400 mb-8 leading-relaxed">
               You've used your 5 free AI generations. Upgrade to Lifetime Access to unlock unlimited content repurposing forever.
             </p>
             <button 
-              className="bg-white text-black px-6 py-4 rounded-xl font-bold w-full hover:bg-gray-200 transition-colors"
+              className="bg-white text-black px-6 py-4 rounded-xl font-bold w-full hover:scale-[1.02] transition-transform shadow-[0_0_20px_rgba(255,255,255,0.2)]"
               onClick={() => window.open('https://payhip.com/b/TrkSR', '_blank')} 
             >
               Upgrade Now - $49
             </button>
             <button 
-              className="mt-6 text-sm text-gray-500 hover:text-white transition-colors"
+              className="mt-6 text-sm font-semibold text-zinc-500 hover:text-white transition-colors"
               onClick={() => setShowUpgradeModal(false)}
             >
               Close
