@@ -1,5 +1,6 @@
 import { getKindeServerSession } from "@kinde-oss/kinde-auth-nextjs/server";
 import Groq from "groq-sdk";
+import { supabase } from "@/lib/supabase"; 
 
 const groq = new Groq({
   apiKey: process.env.GROQ_API_KEY,
@@ -10,24 +11,24 @@ const prompts = {
 Analyze the following source content and transform it into comprehensive, ready-to-publish Instagram content. Avoid all robotic AI buzzwords like "delve", "unlock", or "game-changer".
 Tone: ${tone} (Human, authentic, compelling, and engaging).
 
-Provide the following in full detail (do not abbreviate or summarize):
+Provide the following in full detail:
 
 1. TWO FULL-LENGTH CAPTIONS:
-   - Caption 1 (Storytelling & Authority): Write a complete, multi-paragraph caption with a scroll-stopping hook, a narrative body that expands on the core ideas, a strong Call to Action (CTA), and 5 targeted hashtags.
-   - Caption 2 (Direct Value / Listicle Style): Write an alternative, high-retention breakdown caption with bullet points, actionable takeaways, a CTA, and 5 targeted hashtags.
+   - Caption 1 (Storytelling & Authority): Write a complete, multi-paragraph caption with a scroll-stopping hook, a narrative body, a strong Call to Action (CTA), and 5 targeted hashtags.
+   - Caption 2 (Direct Value / Listicle Style): Write an alternative, high-retention breakdown caption with bullet points, actionable takeaways, a CTA, and 5 hashtags.
 
 2. DETAILED CAROUSEL SCRIPT (6-8 Slides):
    - Provide complete text copy for every single slide. 
    - Slide 1: High-impact hook headline and subtitle.
-   - Slides 2-6: Detailed content blocks with deep explanations, data points, or step-by-step breakdowns.
+   - Slides 2-6: Detailed content blocks with deep explanations.
    - Final Slide: Strong closing summary and CTA.
 
 3. COMPREHENSIVE REEL / TIKTOK SCRIPT (60 seconds):
    - Visual Cues: Exact directions for what is shown on screen.
-   - Spoken Audio Script: Word-for-word, conversational dialogue designed for high retention.
+   - Spoken Audio Script: Word-for-word, conversational dialogue.
    - On-Screen Text Overlays: Exact text snippets to display.
 
-Source content to repurpose:
+Source content:
 ${content}`,
 
   linkedin: (content, tone) => `You are a top-tier B2B executive ghostwriter and thought leader.
@@ -37,12 +38,12 @@ Tone: ${tone} (Sharp, professional, insightful, and conversational. No corporate
 Formatting & Depth Requirements:
 - Start with a contrarian, bold, or deeply analytical 1-line hook.
 - Leave a blank line after the hook.
-- Write a substantial body (150-250 words total) using short, punchy paragraphs (1-3 sentences max) to ensure maximum readability and dwell time.
-- Include a structured section detailing 3 deep, actionable takeaways or professional insights.
-- End with a thought-provoking question that naturally drives high-value comments and discussion.
+- Write a substantial body using short, punchy paragraphs.
+- Include a structured section detailing 3 deep, actionable takeaways.
+- End with a thought-provoking question that naturally drives high-value comments.
 - Return plain text only.
 
-Source content to repurpose:
+Source content:
 ${content}`,
 
   twitter: (content, tone) => `You are an expert ghostwriter on X (Twitter).
@@ -52,15 +53,15 @@ Tone: ${tone} (Punchy, sharp, highly opinionated, zero fluff).
 Include:
 1. A DEEP THREAD (6-8 Tweets):
    - Tweet 1: The killer hook making a bold promise or claim.
-   - Tweets 2-6: Thorough, step-by-step breakdown of the core insights, concepts, or value.
+   - Tweets 2-6: Thorough, step-by-step breakdown of the core insights.
    - Tweet 7: Summary or synthesis.
    - Tweet 8: Call to Action (like, repost, or follow).
    
 2. TWO STANDALONE TWEETS:
-   - High-impact, standalone thoughts under 280 characters that can be posted independently.
+   - High-impact, standalone thoughts under 280 characters.
 
 Return plain text only.
-Source content to repurpose:
+Source content:
 ${content}`,
 
   youtube: (content, tone) => `You are an expert YouTube Shorts and Reels creative director.
@@ -68,25 +69,70 @@ Write a full-length, highly engaging script for a 60-second video based on the s
 Tone: ${tone} (Fast-paced, high energy, engaging, natural dialogue).
 
 Format as plain text with explicit, granular timestamps:
-- [0:00-0:05] THE HOOK: Word-for-word spoken script + precise visual direction to capture attention instantly.
-- [0:05-0:45] THE CORE VALUE: Detailed explanations, examples, or steps delivered rapidly with visual transition notes.
-- [0:45-1:00] THE PAYOFF & CTA: High-retention ending, strong loop potential, and clear call-to-action to subscribe or engage.
+- [0:00-0:05] THE HOOK: Word-for-word spoken script + precise visual direction.
+- [0:05-0:45] THE CORE VALUE: Detailed explanations, examples, or steps delivered rapidly.
+- [0:45-1:00] THE PAYOFF & CTA: High-retention ending and clear call-to-action.
 
-Source content to repurpose:
+Source content:
 ${content}`,
 };
 
 export async function POST(request) {
   try {
-    const { isAuthenticated } = getKindeServerSession();
+    const { isAuthenticated, getUser } = getKindeServerSession();
     const isUserAuthenticated = await isAuthenticated();
     
     if (!isUserAuthenticated) {
       return Response.json({ error: "Unauthorized" }, { status: 401 });
     }
 
+    const user = await getUser();
+    const kindeId = user.id;
+    const email = user.email;
+
+    // 1. VIP Check
+    const vipEmailsString = process.env.NEXT_PUBLIC_VIP_EMAILS || "";
+    const vipEmails = vipEmailsString.split(",").map(e => e.trim());
+    const isVip = vipEmails.includes(email);
+
+    // Get current month string (e.g., "2026-09")
+    const currentMonthString = new Date().toISOString().slice(0, 7);
+
+    // 2. Database Check (Incognito Bypass & Monthly Limits)
+    let totalCount = 0;
+    let monthlyCount = 0;
+    let dbMonth = "";
+
+    const { data: userRecord } = await supabase
+      .from('user_usage')
+      .select('*')
+      .eq('kinde_id', kindeId)
+      .single();
+
+    if (userRecord) {
+      totalCount = userRecord.generation_count || 0;
+      dbMonth = userRecord.current_month || "";
+      monthlyCount = userRecord.monthly_count || 0;
+    }
+
+    // Reset monthly count to 0 if the month has rolled over
+    if (dbMonth !== currentMonthString) {
+      monthlyCount = 0;
+    }
+
+    // Enforce Free Tier Limit
+    if (!isVip && totalCount >= 5) {
+      return Response.json({ error: "Free limit reached" }, { status: 402 });
+    }
+
+    // Enforce VIP Monthly Limit
+    if (isVip && monthlyCount >= 200) {
+      return Response.json({ error: "Monthly VIP limit reached (200 generations). Resets on the 1st." }, { status: 429 });
+    }
+
     const { platform, content, tone } = await request.json();
 
+    // 3. Process Content (Jina Scrape & Truncation)
     let textToProcess = content;
     const isUrl = /^(https?:\/\/[^\s]+)/.test(content.trim());
 
@@ -109,7 +155,7 @@ export async function POST(request) {
 
     const prompt = prompts[platform](textToProcess, tone || "Professional");
 
-    // Using the upgraded model
+    // 4. Generate via Groq
     const response = await groq.chat.completions.create({
       model: "openai/gpt-oss-120b", 
       messages: [
@@ -121,6 +167,28 @@ export async function POST(request) {
       temperature: 0.8,
       max_tokens: 2000,
     });
+
+    // 5. Update Database Counts After Successful Generation
+    if (userRecord) {
+      await supabase
+        .from('user_usage')
+        .update({ 
+          generation_count: totalCount + 1,
+          current_month: currentMonthString,
+          monthly_count: monthlyCount + 1
+        })
+        .eq('kinde_id', kindeId);
+    } else {
+      await supabase
+        .from('user_usage')
+        .insert([{ 
+          kinde_id: kindeId, 
+          email: email, 
+          generation_count: 1,
+          current_month: currentMonthString,
+          monthly_count: 1
+        }]);
+    }
 
     return Response.json({ text: response.choices[0].message.content });
 
