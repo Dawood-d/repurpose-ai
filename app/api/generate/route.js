@@ -1,6 +1,6 @@
 import { getKindeServerSession } from "@kinde-oss/kinde-auth-nextjs/server";
 import Groq from "groq-sdk";
-import { supabase } from "@/lib/supabase"; 
+import { supabase } from "../../../lib/supabase"; 
 
 const groq = new Groq({
   apiKey: process.env.GROQ_API_KEY,
@@ -168,6 +168,8 @@ export async function POST(request) {
       max_tokens: 2000,
     });
 
+    const generatedText = response.choices[0].message.content;
+
     // 5. Update Database Counts After Successful Generation
     if (userRecord) {
       await supabase
@@ -190,7 +192,18 @@ export async function POST(request) {
         }]);
     }
 
-    return Response.json({ text: response.choices[0].message.content });
+    // 6. Save the Output to the User's History
+    await supabase
+      .from('generation_history')
+      .insert([{
+        kinde_id: kindeId,
+        platform: platform,
+        tone: tone || "Professional",
+        source_content: textToProcess,
+        generated_content: generatedText
+      }]);
+
+    return Response.json({ text: generatedText });
 
   } catch (error) {
     console.error("Error generating content:", error);
