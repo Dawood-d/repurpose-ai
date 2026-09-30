@@ -17,7 +17,6 @@ export default function Home() {
 
   const vipEmailsString = process.env.NEXT_PUBLIC_VIP_EMAILS || "";
   const vipEmails = vipEmailsString.split(",").map(email => email.trim());
-  
   const isVip = user?.email && vipEmails.includes(user.email);
 
   const [generationsUsed, setGenerationsUsed] = useState(0);
@@ -33,6 +32,11 @@ export default function Home() {
 
   const tabs = ["instagram", "linkedin", "twitter", "youtube"];
 
+  // --- HISTORY STATE ---
+  const [showHistory, setShowHistory] = useState(false);
+  const [historyData, setHistoryData] = useState([]);
+  const [loadingHistory, setLoadingHistory] = useState(false);
+
   useEffect(() => {
     const cooldownEnd = localStorage.getItem("repurpose_cooldown_end");
     if (cooldownEnd) {
@@ -43,9 +47,6 @@ export default function Home() {
         localStorage.removeItem("repurpose_cooldown_end");
       }
     }
-
-    const usage = localStorage.getItem("repurpose_usage");
-    if (usage) setGenerationsUsed(parseInt(usage));
   }, []);
 
   useEffect(() => {
@@ -57,11 +58,6 @@ export default function Home() {
 
   const generateContent = async () => {
     if (!input.trim()) return;
-
-    if (!isVip && generationsUsed >= MAX_FREE_TRIPS) {
-      setShowUpgradeModal(true);
-      return;
-    }
 
     setLoading(true);
     setError("");
@@ -86,12 +82,6 @@ export default function Home() {
 
       setOutputs((prev) => ({ ...prev, [activeTab]: data.text }));
 
-      if (!isVip) {
-        const newUsage = generationsUsed + 1;
-        setGenerationsUsed(newUsage);
-        localStorage.setItem("repurpose_usage", newUsage);
-      }
-
     } catch (err) {
       setError(err.message);
     }
@@ -101,12 +91,27 @@ export default function Home() {
     localStorage.setItem("repurpose_cooldown_end", (Date.now() + 30000).toString());
   };
 
-  const copyText = () => {
-    navigator.clipboard.writeText(outputs[activeTab]);
-    alert("Copied");
+  const copyText = (text) => {
+    navigator.clipboard.writeText(text);
+    alert("Copied!");
   };
 
-  // --- STATE 1: LOADING ---
+  // --- FETCH HISTORY ---
+  const loadHistory = async () => {
+    setShowHistory(true);
+    setLoadingHistory(true);
+    try {
+      const res = await fetch("/api/history");
+      const data = await res.json();
+      if (data.history) {
+        setHistoryData(data.history);
+      }
+    } catch (err) {
+      console.error("Failed to load history", err);
+    }
+    setLoadingHistory(false);
+  };
+
   if (isLoading) {
     return (
       <main className="min-h-screen bg-black text-white flex items-center justify-center">
@@ -117,11 +122,9 @@ export default function Home() {
     );
   }
 
-  // --- STATE 2: MARKETING LANDING PAGE (Unauthenticated) ---
   if (!isAuthenticated) {
     return (
       <main className="min-h-screen bg-black text-white selection:bg-white selection:text-black font-sans">
-        {/* Navbar */}
         <nav className="max-w-7xl mx-auto px-6 py-6 flex justify-between items-center border-b border-zinc-900">
           <div className="flex items-center gap-2">
             <span className="text-2xl">🚀</span>
@@ -135,59 +138,36 @@ export default function Home() {
           </div>
         </nav>
 
-        {/* Hero Section */}
         <section className="max-w-5xl mx-auto px-6 py-32 text-center flex flex-col items-center">
           <div className="bg-zinc-900 border border-zinc-800 text-zinc-300 text-xs px-4 py-1.5 rounded-full uppercase tracking-widest font-semibold mb-8 flex items-center gap-2">
             <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>
             Built for Modern Creators
           </div>
-          
           <h1 className="text-5xl md:text-7xl font-extrabold tracking-tight mb-8 leading-tight">
             Turn One Blog Into <br className="hidden md:block"/>
             <span className="text-transparent bg-clip-text bg-gradient-to-r from-white to-zinc-500">Weeks of Social Content.</span>
           </h1>
-          
           <p className="text-lg md:text-xl text-zinc-400 mb-12 max-w-2xl leading-relaxed">
             Instantly transform any article, URL, or notes into high-converting Instagram carousels, LinkedIn thought-leadership posts, Twitter threads, and YouTube scripts.
           </p>
-          
           <RegisterLink className="bg-white text-black px-8 py-4 rounded-2xl font-bold text-lg hover:scale-105 transition-all shadow-[0_0_30px_rgba(255,255,255,0.2)]">
             Start Repurposing For Free →
           </RegisterLink>
-
           <p className="text-sm text-zinc-500 mt-6 font-medium">No credit card required. 5 free generations.</p>
-        </section>
-
-        {/* Mini Feature Grid */}
-        <section className="max-w-7xl mx-auto px-6 pb-32">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {[
-              { title: "Smart Scraping", desc: "Just paste a URL. Our AI instantly reads and extracts the core value from any blog post." },
-              { title: "Platform Native", desc: "Generates proper formatting, threads, and hooks designed specifically for the algorithm of each platform." },
-              { title: "Custom Tones", desc: "Match your personal brand. Switch between Professional, Storytelling, Viral, and Educational voices." }
-            ].map((feature, i) => (
-              <div key={i} className="bg-zinc-900/50 border border-zinc-800 p-8 rounded-3xl">
-                <h3 className="text-xl font-bold mb-3">{feature.title}</h3>
-                <p className="text-zinc-400 leading-relaxed">{feature.desc}</p>
-              </div>
-            ))}
-          </div>
         </section>
       </main>
     );
   }
 
-  // --- STATE 3: APP WORKSPACE (Authenticated) ---
   return (
     <main className="min-h-screen bg-black text-white p-6 relative">
       <div className="max-w-7xl mx-auto">
         
-        {/* Workspace Header */}
         <div className="flex justify-between items-center mb-8 border-b border-zinc-900 pb-6">
           <div className="flex items-center gap-3">
             <span className="text-2xl">🚀</span>
             <div>
-              <h1 className="text-2xl font-bold tracking-tight">RepurposeAI</h1>
+              <h1 className="text-2xl font-bold tracking-tight">Workspace</h1>
               <p className="text-zinc-500 text-sm mt-1">Repurpose your content</p>
             </div>
           </div>
@@ -198,6 +178,14 @@ export default function Home() {
                 VIP Access
               </span>
             )}
+            
+            <button 
+              onClick={loadHistory}
+              className="text-sm font-semibold text-zinc-300 hover:text-white transition-colors flex items-center gap-2"
+            >
+              🕒 History
+            </button>
+
             <div className="w-px h-4 bg-zinc-700 hidden sm:block"></div>
             <LogoutLink className="text-sm font-semibold text-zinc-400 hover:text-white transition-colors">
               Log Out
@@ -205,13 +193,9 @@ export default function Home() {
           </div>
         </div>
 
-        {/* Tool Grid */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Left Column: Input */}
           <div className="bg-zinc-900 rounded-3xl p-6 border border-zinc-800 flex flex-col">
-            <div className="flex justify-between items-center mb-6">
-              <h2 className="text-xl font-bold">Source Content</h2>
-            </div>
+            <h2 className="text-xl font-bold mb-6">Source Content</h2>
             
             <select
               value={tone}
@@ -248,13 +232,12 @@ export default function Home() {
             </button>
           </div>
 
-          {/* Right Column: Output */}
           <div className="bg-zinc-900 rounded-3xl p-6 border border-zinc-800 flex flex-col">
             <div className="flex justify-between items-center mb-6">
               <h2 className="text-xl font-bold">Output</h2>
               {outputs[activeTab] && (
                 <button
-                  onClick={copyText}
+                  onClick={() => copyText(outputs[activeTab])}
                   className="bg-zinc-800 text-sm font-semibold px-4 py-2 rounded-lg hover:bg-zinc-700 transition-colors border border-zinc-700"
                 >
                   Copy Text
@@ -303,6 +286,59 @@ export default function Home() {
           </div>
         </div>
       </div>
+
+      {/* History Modal Overlay */}
+      {showHistory && (
+        <div className="fixed inset-0 z-50 flex justify-end bg-black/80 backdrop-blur-sm">
+          <div className="bg-zinc-900 border-l border-zinc-800 w-full max-w-2xl h-full flex flex-col shadow-2xl animate-in slide-in-from-right duration-300">
+            <div className="p-6 border-b border-zinc-800 flex justify-between items-center bg-zinc-900/50">
+              <div>
+                <h2 className="text-xl font-bold">Your History</h2>
+                <p className="text-sm text-zinc-500">Your recent AI generations</p>
+              </div>
+              <button 
+                onClick={() => setShowHistory(false)}
+                className="text-zinc-400 hover:text-white bg-zinc-800 px-3 py-1 rounded-lg"
+              >
+                Close ✕
+              </button>
+            </div>
+            
+            <div className="p-6 overflow-y-auto flex-grow space-y-6">
+              {loadingHistory ? (
+                <div className="text-center text-zinc-500 animate-pulse mt-10">Loading history...</div>
+              ) : historyData.length === 0 ? (
+                <div className="text-center text-zinc-500 mt-10">No history found yet. Go generate something!</div>
+              ) : (
+                historyData.map((item) => (
+                  <div key={item.id} className="bg-zinc-800/50 border border-zinc-700 rounded-2xl p-5">
+                    <div className="flex justify-between items-center mb-4">
+                      <div className="flex gap-2 items-center">
+                        <span className="bg-white text-black px-2 py-1 rounded text-xs font-bold uppercase">
+                          {item.platform}
+                        </span>
+                        <span className="text-xs text-zinc-400">{item.tone}</span>
+                      </div>
+                      <button 
+                        onClick={() => copyText(item.generated_content)}
+                        className="text-xs bg-zinc-700 hover:bg-zinc-600 px-3 py-1 rounded-md transition-colors"
+                      >
+                        Copy
+                      </button>
+                    </div>
+                    <pre className="whitespace-pre-wrap text-[13px] leading-relaxed font-sans text-zinc-300 bg-black/40 p-4 rounded-xl max-h-64 overflow-y-auto">
+                      {item.generated_content}
+                    </pre>
+                    <div className="text-right text-[10px] text-zinc-500 mt-3">
+                      {new Date(item.created_at).toLocaleString()}
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Paywall Modal */}
       {showUpgradeModal && (
