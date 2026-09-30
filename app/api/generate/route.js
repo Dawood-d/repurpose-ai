@@ -1,6 +1,6 @@
 import { getKindeServerSession } from "@kinde-oss/kinde-auth-nextjs/server";
 import Groq from "groq-sdk";
-import { supabase } from "../../../lib/supabase"; 
+import { supabase } from "@/lib/supabase"; 
 
 const groq = new Groq({
   apiKey: process.env.GROQ_API_KEY,
